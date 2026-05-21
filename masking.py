@@ -1,13 +1,19 @@
-
 import spacy
+import re
 
-# Load spaCy model
+
+# =====================================================
+# LOAD SPACY MODEL
+# =====================================================
+
 nlp = spacy.load("en_core_web_lg")
 
 
-def mask_sensitive_data(text: str):
+# =====================================================
+# MASK SENSITIVE DATA
+# =====================================================
 
-    doc = nlp(text)
+def mask_sensitive_data(text: str):
 
     masked_text = text
 
@@ -15,84 +21,193 @@ def mask_sensitive_data(text: str):
 
     audit_table = []
 
+    # =====================================================
+    # COUNTERS
+    # =====================================================
+
     counters = {
-        "PERSON": 1,
+        "NAME": 1,
         "ORG": 1,
-        "GPE": 1
+        "LOCATION": 1
     }
 
-    entity_map = {
-        "PERSON": "NAME",
-        "ORG": "ORG",
-        "GPE": "LOCATION"
-    }
+    # =====================================================
+    # CUSTOM NAME PATTERNS
+    # =====================================================
 
-    # Sort entities by length
+    custom_name_patterns = [
+
+        r"my name is ([a-zA-Z]+\s[a-zA-Z]+)",
+
+        r"i am ([a-zA-Z]+\s[a-zA-Z]+)",
+
+        r"this is ([a-zA-Z]+\s[a-zA-Z]+)"
+    ]
+
+    # =====================================================
+    # CUSTOM NAME MASKING
+    # =====================================================
+
+    for pattern in custom_name_patterns:
+
+        matches = re.finditer(
+            pattern,
+            text,
+            re.IGNORECASE
+        )
+
+        for match in matches:
+
+            detected_name = match.group(1)
+
+            # SKIP DUPLICATES
+            if detected_name in mapping.values():
+                continue
+
+            token = f"[NAME_{counters['NAME']}]"
+
+            masked_text = masked_text.replace(
+                detected_name,
+                token
+            )
+
+            mapping[token] = detected_name
+
+            audit_table.append({
+
+                "type": "NAME",
+
+                "original": detected_name,
+
+                "masked": token,
+
+                "method": "CUSTOM_REGEX"
+            })
+
+            counters["NAME"] += 1
+
+    # =====================================================
+    # SPACY NER
+    # =====================================================
+
+    doc = nlp(text)
+
     entities = sorted(
         doc.ents,
         key=lambda x: len(x.text),
         reverse=True
     )
 
+    # =====================================================
+    # ENTITY MAP
+    # =====================================================
+
+    entity_map = {
+
+        "PERSON": "NAME",
+
+        "ORG": "ORG",
+
+        "GPE": "LOCATION"
+    }
+
+    # =====================================================
+    # IGNORE WORDS
+    # =====================================================
+
+    ignore_words = [
+
+        "ai",
+
+        "ml",
+
+        "llm",
+
+        "nlp",
+
+        "python",
+
+        "chatgpt",
+
+        "openai"
+    ]
+
+    # =====================================================
+    # PROCESS ENTITIES
+    # =====================================================
+
     for ent in entities:
 
-        # =========================
-        # SKIP REGEX TOKENS
-        # =========================
+        entity_text = ent.text.strip()
 
-        if "ZX" in ent.text:
+        # =====================================================
+        # SKIP EMPTY
+        # =====================================================
+
+        if not entity_text:
             continue
 
-        # =========================
-        # IGNORE SMALL / NOISY TOKENS
-        # =========================
+        # =====================================================
+        # SKIP MASKED TOKENS
+        # =====================================================
 
-        if len(ent.text.strip()) <= 3:
+        if "[" in entity_text and "]" in entity_text:
             continue
 
-        # =========================
-        # IGNORE COMMON FALSE POSITIVES
-        # =========================
+        # =====================================================
+        # SKIP DUPLICATES
+        # =====================================================
 
-        blocked_words = {
-            "email",
-            "phone",
-            "number",
-            "address",
-            "contact"
-        }
-
-        if ent.text.lower() in blocked_words:
+        if entity_text in mapping.values():
             continue
 
-        # =========================
-        # PROCESS VALID ENTITIES
-        # =========================
+        # =====================================================
+        # IGNORE TECH WORDS
+        # =====================================================
+
+        if entity_text.lower() in ignore_words:
+            continue
+
+        # =====================================================
+        # VALID ENTITY
+        # =====================================================
 
         if ent.label_ in entity_map:
 
             entity_type = entity_map[ent.label_]
 
-            token = f"[{entity_type}_{counters[ent.label_]}]"
+            token = f"[{entity_type}_{counters[entity_type]}]"
 
             masked_text = masked_text.replace(
-                ent.text,
+                entity_text,
                 token
             )
 
-            mapping[token] = ent.text
+            mapping[token] = entity_text
 
             audit_table.append({
+
                 "type": entity_type,
-                "original": ent.text,
+
+                "original": entity_text,
+
                 "masked": token,
+
                 "method": "NER"
             })
 
-            counters[ent.label_] += 1
+            counters[entity_type] += 1
+
+    # =====================================================
+    # RETURN
+    # =====================================================
 
     return masked_text, mapping, audit_table
 
+
+# =====================================================
+# UNMASK TEXT
+# =====================================================
 
 def unmask_text(text: str, mapping: dict):
 

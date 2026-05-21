@@ -1,188 +1,124 @@
-# LLM-Based Privacy Masking Gateway
+# 🛡 Secure AI Privacy Gateway
 
-A hybrid privacy-preserving AI gateway that masks sensitive user information before sending data to an LLM.
+A privacy-first AI system that protects sensitive user information before sending prompts to Large Language Models (LLMs).
 
-The system combines:
-
-- Regex-based masking for structured sensitive data
-- spaCy Named Entity Recognition (NER) for contextual entities
-- LLM integration using Groq API
-- Secure unmasking pipeline
-- Latency monitoring system
+The main goal of this project is to create a secure AI layer where users can interact with AI systems without directly exposing confidential data to the model.
 
 ---
 
-# Features
+# 🚀 What This Project Does
 
-## Regex-Based Sensitive Data Detection
+This project currently provides two main features:
 
-Masks:
+## 1. Data Masking Service
 
-- Email
-- Phone Number
-- PAN Number
-- Aadhaar Number
+Users can paste sensitive text and the system automatically masks confidential information before sharing or processing it.
 
-Example:
+### Supported Sensitive Entities
 
-```text
-rahul@gmail.com → [EMAIL_1]
-9876543210 → [PHONE_1]
-```
+* Email Addresses
+* Phone Numbers
+* PAN Numbers
+* Aadhaar Numbers
+* Person Names
+* Organizations
+* Locations
 
----
+### Privacy Architecture Used
 
-## NER-Based Entity Detection
+The project uses a Hybrid Privacy Pipeline:
 
-Using spaCy NER model:
+* **Regex-based masking** for structured entities
+  (Email, Phone, PAN, Aadhaar)
 
-- PERSON
-- ORGANIZATION
-- LOCATION
+* **NER-based masking using spaCy** for contextual entities
+  (Names, Organizations, Locations)
 
-Example:
-
-```text
-Rahul Sharma → [NAME_1]
-Infosys → [ORG_1]
-Delhi → [LOCATION_1]
-```
+This hybrid approach improves overall masking coverage and accuracy.
 
 ---
 
-## Hybrid Privacy Pipeline
+## 2. Secure AI Assistant
 
-Flow:
+A privacy-safe AI chatbot where sensitive user data is automatically masked before reaching the LLM.
 
-```text
-User Input
-   ↓
-Regex Masking
-   ↓
-NER Masking
-   ↓
-LLM Request
-   ↓
-LLM Response
-   ↓
-Unmasking
-   ↓
-Final Secure Response
-```
+### Flow
+
+1. User sends prompt
+2. Sensitive information gets masked
+3. Masked prompt is sent to the LLM
+4. LLM generates response securely
+5. Original values are restored safely
+
+This ensures that raw sensitive user data never directly reaches the AI model.
 
 ---
 
-# Tech Stack
+# 🔍 Transparency Panel
 
-- Python
-- FastAPI
-- spaCy
-- Regex
-- Groq API
-- Uvicorn
-- Pydantic
+The project also includes a transparency panel that shows:
 
----
+* what data was masked
+* masking method used
+* generated placeholder tokens
 
-# Architecture
+This helps improve:
 
-```text
-Client
-  ↓
-FastAPI Gateway
-  ↓
-Regex Masking Layer
-  ↓
-NER Masking Layer
-  ↓
-LLM (Groq)
-  ↓
-Response Unmasking
-  ↓
-Secure Response
-```
+* explainability
+* transparency
+* user trust
 
 ---
 
-# API Endpoints
+# 📊 Benchmarking & Evaluation
 
-## NER Endpoint
+The project also includes a small evaluation pipeline to benchmark:
 
-```http
-POST /mask-and-send
-```
+* Precision
+* Recall
+* F1 Score
+* Latency
 
-Uses only spaCy NER masking.
+using manually created sensitive-entity test cases.
 
----
-
-## Hybrid Endpoint
-
-```http
-POST /hybrid-mask-and-send
-```
-
-Uses:
-
-- Regex masking
-- NER masking
-- LLM processing
-- Secure unmasking
-
----
-
-# Example Request
-
-```json
-{
-  "text": "Rahul Sharma works at Infosys. Email is rahul@gmail.com and phone is 9876543210"
-}
-```
-
----
-
-# Example Response
-
-```json
-{
-  "masked_text": "[NAME_1] works at [ORG_1]. Email is [EMAIL_1] and phone is [PHONE_1]"
-}
-```
-
----
-
-# Latency Metrics
-
-The system measures:
-
-- Regex masking latency
-- NER masking latency
-- LLM response latency
-- Unmasking latency
-- Total processing latency
-
----
-
-# Installation
-
-## Clone Repository
+Run evaluation:
 
 ```bash
-git clone <your-github-link>
-cd Data-Masking
+python evaluation.py
 ```
 
 ---
 
-## Create Virtual Environment
+# ⚙ Tech Stack
+
+### Frontend
+
+* Streamlit
+
+### Backend
+
+* FastAPI
+
+### NLP / AI
+
+* spaCy
+* Groq API
+
+### Privacy Layer
+
+* Regex + NER Hybrid Masking
+
+---
+
+# 🚀 How to Run the Project
+
+## 1. Create Virtual Environment
 
 ```bash
 python -m venv .venv
 ```
 
----
-
-## Activate Environment
+Activate environment:
 
 ### Mac/Linux
 
@@ -190,15 +126,9 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-### Windows
-
-```bash
-.venv\Scripts\activate
-```
-
 ---
 
-## Install Dependencies
+## 2. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -206,7 +136,7 @@ pip install -r requirements.txt
 
 ---
 
-## Download spaCy Model
+## 3. Install spaCy Model
 
 ```bash
 python -m spacy download en_core_web_lg
@@ -214,9 +144,9 @@ python -m spacy download en_core_web_lg
 
 ---
 
-# Environment Variables
+## 4. Add API Key
 
-Create `.env` file:
+Create a `.env` file:
 
 ```env
 GROQ_API_KEY=your_api_key
@@ -224,17 +154,33 @@ GROQ_API_KEY=your_api_key
 
 ---
 
-# Run Locally
+# ▶ Run Backend
 
 ```bash
-uvicorn main:app --reload
-```
-
-Swagger UI:
-
-```text
-http://127.0.0.1:8000/docs
+python -m uvicorn main:app --reload
 ```
 
 ---
 
+# ▶ Run Frontend
+
+Open a new terminal and run:
+
+```bash
+streamlit run app.py
+```
+
+---
+for evaluation metrics run in new terminal 
+python evaluation.py
+
+# 📂 Main Project Files
+
+* `app.py` → Streamlit frontend
+* `main.py` → FastAPI backend
+* `masking.py` → NER masking logic
+* `regex_masking.py` → Regex masking logic
+* `llm_service.py` → Groq LLM integration
+* `evaluation.py` → Benchmarking & evaluation pipeline
+
+---

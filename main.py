@@ -2,23 +2,28 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from masking import mask_sensitive_data, unmask_text
-from llm_service import get_llm_response
 from regex_masking import regex_mask_sensitive_data
-
-import time
+from llm_service import get_llm_response
 
 app = FastAPI()
 
+
+# =====================================================
+# REQUEST MODEL
+# =====================================================
 
 class UserRequest(BaseModel):
     text: str
 
 
-# =========================
-# DISPLAY FRIENDLY TOKENS
-# =========================
+# =====================================================
+# DISPLAY TOKEN FORMAT
+# =====================================================
 
-def make_display_text(text: str):
+def make_display_text(text):
+
+    if text is None:
+        return ""
 
     text = text.replace("__EMAIL_", "[EMAIL_")
     text = text.replace("__PHONE_", "[PHONE_")
@@ -30,71 +35,32 @@ def make_display_text(text: str):
     return text
 
 
-# =========================
-# OLD NER ONLY ENDPOINT
-# =========================
+# =====================================================
+# HOME
+# =====================================================
 
-@app.post("/mask-and-send")
-def mask_and_send(request: UserRequest):
-
-    masked_text, mapping, audit_table = mask_sensitive_data(request.text)
-
-    masked_llm_response = get_llm_response(masked_text)
-
-    final_response = unmask_text(masked_llm_response, mapping)
+@app.get("/")
+def home():
 
     return {
-
-        "original_text": request.text,
-
-        "masked_text": masked_text,
-
-        "masked_entities": audit_table,
-
-        "mapping": mapping,
-
-        "llm_response_masked": masked_llm_response,
-
-        "llm_response_unmasked": final_response
+        "message": "Secure AI Privacy Gateway Running"
     }
 
 
-# =========================
-# HYBRID REGEX + NER ENDPOINT
-# =========================
+# =====================================================
+# DATA MASKING SERVICE
+# =====================================================
 
 @app.post("/hybrid-mask-and-send")
 def hybrid_mask_and_send(request: UserRequest):
 
-    total_start = time.time()
-
-    # =========================
-    # REGEX MASKING
-    # =========================
-
-    regex_start = time.time()
-
-    regex_masked_text, regex_mapping, regex_audit = regex_mask_sensitive_data(
-        request.text
+    regex_masked_text, regex_mapping, regex_audit = (
+        regex_mask_sensitive_data(request.text)
     )
 
-    regex_time = time.time() - regex_start
-
-    # =========================
-    # NER MASKING
-    # =========================
-
-    ner_start = time.time()
-
-    ner_masked_text, ner_mapping, ner_audit = mask_sensitive_data(
-        regex_masked_text
+    ner_masked_text, ner_mapping, ner_audit = (
+        mask_sensitive_data(regex_masked_text)
     )
-
-    ner_time = time.time() - ner_start
-
-    # =========================
-    # COMBINED MAPPING
-    # =========================
 
     combined_mapping = {
         **regex_mapping,
@@ -102,41 +68,6 @@ def hybrid_mask_and_send(request: UserRequest):
     }
 
     combined_audit = regex_audit + ner_audit
-
-    # =========================
-    # LLM CALL
-    # =========================
-
-    llm_start = time.time()
-
-    masked_llm_response = get_llm_response(
-        ner_masked_text
-    )
-
-    llm_time = time.time() - llm_start
-
-    # =========================
-    # UNMASK RESPONSE
-    # =========================
-
-    unmask_start = time.time()
-
-    final_response = unmask_text(
-        masked_llm_response,
-        combined_mapping
-    )
-
-    unmask_time = time.time() - unmask_start
-
-    # =========================
-    # TOTAL LATENCY
-    # =========================
-
-    total_time = time.time() - total_start
-
-    # =========================
-    # FINAL RESPONSE
-    # =========================
 
     return {
 
@@ -148,24 +79,93 @@ def hybrid_mask_and_send(request: UserRequest):
 
         "masked_entities": combined_audit,
 
-        "mapping": combined_mapping,
-
-        "llm_response_masked": make_display_text(
-            masked_llm_response
-        ),
-
-        "llm_response_unmasked": final_response,
-
-        "latency_metrics": {
-
-            "regex_time_ms": round(regex_time * 1000, 2),
-
-            "ner_time_ms": round(ner_time * 1000, 2),
-
-            "llm_time_ms": round(llm_time * 1000, 2),
-
-            "unmask_time_ms": round(unmask_time * 1000, 2),
-
-            "total_time_ms": round(total_time * 1000, 2)
-        }
+        "mapping": combined_mapping
     }
+
+
+# =====================================================
+# SECURE AI ASSISTANT
+# =====================================================
+
+@app.post("/secure-ai-chat")
+def secure_ai_chat(request: UserRequest):
+
+    try:
+
+        # =========================
+        # REGEX MASKING
+        # =========================
+
+        regex_masked_text, regex_mapping, regex_audit = (
+            regex_mask_sensitive_data(request.text)
+        )
+
+        # =========================
+        # NER MASKING
+        # =========================
+
+        ner_masked_text, ner_mapping, ner_audit = (
+            mask_sensitive_data(regex_masked_text)
+        )
+
+        combined_mapping = {
+            **regex_mapping,
+            **ner_mapping
+        }
+
+        combined_audit = regex_audit + ner_audit
+
+        display_masked_prompt = make_display_text(
+            ner_masked_text
+        )
+
+        print("\n========================")
+        print("MASKED PROMPT")
+        print(display_masked_prompt)
+        print("========================\n")
+
+        # =========================
+        # SEND TO LLM
+        # =========================
+
+        llm_response = get_llm_response(
+            display_masked_prompt
+        )
+
+        # =========================
+        # UNMASK RESPONSE
+        # =========================
+
+        final_response = unmask_text(
+            llm_response,
+            combined_mapping
+        )
+
+        return {
+
+            "retrieved_context": "No document uploaded yet.",
+
+            "masked_prompt": display_masked_prompt,
+
+            "masked_entities": combined_audit,
+
+            "final_response": final_response
+        }
+
+    except Exception as e:
+
+        print("\n========================")
+        print("BACKEND ERROR")
+        print(str(e))
+        print("========================\n")
+
+        return {
+
+            "retrieved_context": "",
+
+            "masked_prompt": "",
+
+            "masked_entities": [],
+
+            "final_response": f"Backend Error: {str(e)}"
+        }
